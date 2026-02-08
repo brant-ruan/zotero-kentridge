@@ -1,7 +1,7 @@
 {
   "name": "zotero-kentridge",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A plugin for fetching paper metadata in Zotero.",
   "config": {
     "addonName": "zotero-kentridge",
