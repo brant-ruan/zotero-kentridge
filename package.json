@@ -2,7 +2,7 @@
   "name": "zotero-kentridge",
   "type": "module",
   "version": "0.0.1",
-  "description": "一个用于拉取论文元数据的插件。",
+  "description": "A plugin for fetching paper metadata in Zotero.",
   "config": {
     "addonName": "zotero-kentridge",
     "addonID": "kentridge@rambo.com",

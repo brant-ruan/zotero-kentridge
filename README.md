@@ -8,7 +8,8 @@ Kentridge is a Zotero plugin for fetching and applying bibliographic metadata by
 ## Why “Kentridge”?
 
 Kentridge is the location of the National University of Singapore, where the project author is doing a PhD.  
-So yes, this plugin is named after a place that trained the author to chase metadata with the same determination used to chase deadlines.
+
+It also exists for a practical reason: Zotero's built-in metadata coverage is not always enough for many computer science venues, especially conference-heavy ecosystems (for example, parts of the USENIX series). Kentridge helps fill that gap by querying external scholarly sources and applying structured metadata back to your items.
 
 ## Features
 
@@ -50,6 +51,14 @@ cp .env.example .env
 ```bash
 npm start
 ```
+
+## Installation (Release)
+
+1. Open the latest release page: [Releases](https://github.com/brant-ruan/zotero-kentridge/releases)
+2. Download the `.xpi` file (for example: `zotero-kentridge.xpi`).
+3. In Zotero, open `Tools -> Plugins`.
+4. Click the gear icon in the plugin manager, then choose `Install Plugin From File...`.
+5. Select the downloaded `.xpi` file and restart Zotero when prompted.
 
 ## Usage
 
