@@ -60,7 +60,7 @@ export class DblpProvider implements DataProvider {
       title: this.normalizeTitle(info.title),
       creators: creators,
       date: info.year,
-      publicationTitle: info.venue,
+      publicationTitle: this.normalizeText(info.venue),
       volume: info.volume,
       issue: info.number,
       pages: info.pages,
@@ -71,7 +71,7 @@ export class DblpProvider implements DataProvider {
   }
 
   private normalizeTitle(title: unknown): string {
-    const raw = typeof title === "string" ? title.trim() : "";
+    const raw = this.normalizeText(title);
     if (!raw) {
       return "";
     }
@@ -80,12 +80,42 @@ export class DblpProvider implements DataProvider {
   }
 
   private normalizeAuthorName(name: unknown): string {
-    const raw = typeof name === "string" ? name.trim() : "";
+    const raw = this.normalizeText(name);
     if (!raw) {
       return "";
     }
     // DBLP disambiguation suffix like "0001"/"0002" should not be kept in creator names.
     return raw.replace(/\s+\d{4}\s*$/, "");
+  }
+
+  private normalizeText(value: unknown): string {
+    if (typeof value !== "string") {
+      return "";
+    }
+    return this.decodeHtmlEntities(value).trim();
+  }
+
+  private decodeHtmlEntities(value: string): string {
+    const namedEntities: Record<string, string> = {
+      amp: "&",
+      lt: "<",
+      gt: ">",
+      quot: '"',
+      apos: "'",
+      nbsp: " ",
+    };
+
+    return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+      if (entity.startsWith("#x") || entity.startsWith("#X")) {
+        const code = Number.parseInt(entity.slice(2), 16);
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      }
+      if (entity.startsWith("#")) {
+        const code = Number.parseInt(entity.slice(1), 10);
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      }
+      return namedEntities[entity] ?? match;
+    });
   }
 
   private mapDblpTypeToZotero(type: string): string {

@@ -8,6 +8,8 @@ interface SearchResult {
   metadata: MetadataItem;
 }
 
+type SelectionAction = SearchResult | null | "abort";
+
 class Kentridge {
   private static instance: Kentridge;
 
@@ -23,8 +25,8 @@ class Kentridge {
   public async fetchMetadataForSelectedItem() {
     const pane = Zotero.getActiveZoteroPane();
     const selectedItems = pane.getSelectedItems();
-    if (selectedItems.length !== 1) {
-      Zotero.debug("[kentridge] Please select exactly one item.");
+    if (selectedItems.length === 0) {
+      Zotero.debug("[kentridge] Please select at least one item.");
       return;
     }
     const enabledProviders = getEnabledProviderConfigs();
@@ -33,25 +35,51 @@ class Kentridge {
       return;
     }
 
-    const item = selectedItems[0];
-    const title = item.getField("title");
-    if (!title) {
-      Zotero.debug("[kentridge] Selected item has no title.");
-      return;
+    const failedTitles: string[] = [];
+
+    for (let index = 0; index < selectedItems.length; index++) {
+      const item = selectedItems[index];
+      const title = String(item.getField("title") || "").trim();
+      if (!title) {
+        Zotero.debug(`[kentridge] Skip item ${item.id}: empty title.`);
+        failedTitles.push(`(untitled item #${item.id})`);
+        continue;
+      }
+
+      Zotero.debug(
+        `[kentridge] [${index + 1}/${selectedItems.length}] Fetching for title: ${title}`,
+      );
+      const results = await this.fetchFromEnabledProviders(
+        title,
+        enabledProviders,
+      );
+
+      if (results.length === 0) {
+        failedTitles.push(title);
+        continue;
+      }
+
+      const action = await this.showResultSelectionDialog(
+        item,
+        results,
+        index + 1,
+        selectedItems.length,
+      );
+
+      if (action === "abort") {
+        break;
+      }
+
+      if (!action) {
+        continue;
+      }
+
+      await this.updateItemWithMetadata(item, action.metadata);
     }
 
-    Zotero.debug(`[kentridge] Fetching for title: ${title}`);
-    const results = await this.fetchFromEnabledProviders(
-      title,
-      enabledProviders,
-    );
-
-    if (results.length === 0) {
-      this.showInfoDialog("Kentridge", "No metadata match was found.");
-      return;
+    if (failedTitles.length > 0) {
+      this.showBatchFailureSummaryDialog(failedTitles);
     }
-
-    this.showResultSelectionDialog(item, results);
   }
 
   private async fetchFromEnabledProviders(
@@ -86,78 +114,106 @@ class Kentridge {
   private showResultSelectionDialog(
     item: Zotero.Item,
     results: SearchResult[],
-  ) {
+    currentIndex: number,
+    totalCount: number,
+  ): Promise<SelectionAction> {
     const dialog = new addon.data.ztoolkit.Dialog(1, 1);
-    const resultRadioName = "kentridge-result-radio";
+    const resultRadioName = `kentridge-result-radio-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    dialog.addCell(0, 0, {
-      tag: "div",
-      namespace: "html",
-      styles: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        width: "100%",
-        minWidth: "760px",
-        maxWidth: "100%",
-      },
-      children: [
-        {
-          tag: "p",
-          namespace: "html",
-          styles: { margin: "0", fontWeight: "bold" },
-          properties: {
-            textContent: "Select a metadata entry to apply:",
-          },
-        },
-        {
-          tag: "div",
-          namespace: "html",
-          styles: {
-            width: "100%",
-            minHeight: "360px",
-            maxHeight: "420px",
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-            boxSizing: "border-box",
-            paddingRight: "4px",
-          },
-          children: results.map((result, index) =>
-            this.buildResultCard(result, index, resultRadioName),
-          ),
-        },
-      ],
-    });
-    dialog.addButton("Cancel", "cancel");
-    dialog.addButton("Apply", "apply", {
-      noClose: true,
-      callback: () => {
-        const selectedResult = this.getSelectedResult(
-          dialog.window,
-          resultRadioName,
-          results,
-        );
-        if (!selectedResult) {
-          this.showInfoDialog("Kentridge", "Please select one result.");
+    return new Promise((resolve) => {
+      let resolved = false;
+      const finish = (action: SelectionAction) => {
+        if (resolved) {
           return;
         }
+        resolved = true;
+        resolve(action);
+      };
 
-        dialog.window.close();
-        // Close dialog first to avoid perceived UI blocking, then update metadata.
-        Zotero.Promise.delay(0).then(() => {
-          void this.updateItemWithMetadata(item, selectedResult.metadata);
-        });
-      },
-    });
+      dialog.addCell(0, 0, {
+        tag: "div",
+        namespace: "html",
+        styles: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          width: "100%",
+          minWidth: "760px",
+          maxWidth: "100%",
+        },
+        children: [
+          {
+            tag: "p",
+            namespace: "html",
+            styles: { margin: "0", fontWeight: "bold" },
+            properties: {
+              textContent: `Item ${currentIndex}/${totalCount}: ${String(item.getField("title") || "Untitled")}`,
+            },
+          },
+          {
+            tag: "p",
+            namespace: "html",
+            styles: { margin: "0", color: "#444" },
+            properties: {
+              textContent: "Select a metadata entry to apply:",
+            },
+          },
+          {
+            tag: "div",
+            namespace: "html",
+            styles: {
+              width: "100%",
+              minHeight: "360px",
+              maxHeight: "420px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              boxSizing: "border-box",
+              paddingRight: "4px",
+            },
+            children: results.map((result, index) =>
+              this.buildResultCard(result, index, resultRadioName),
+            ),
+          },
+        ],
+      });
+      dialog.addButton("Skip", "skip", {
+        callback: () => finish(null),
+      });
+      dialog.addButton("Stop", "stop", {
+        callback: () => finish("abort"),
+      });
+      dialog.addButton("Apply", "apply", {
+        noClose: true,
+        callback: () => {
+          const selectedResult = this.getSelectedResult(
+            dialog.window,
+            resultRadioName,
+            results,
+          );
+          if (!selectedResult) {
+            this.showInfoDialog("Kentridge", "Please select one result.");
+            return;
+          }
 
-    dialog.open("Kentridge: Metadata Results", {
-      width: 900,
-      height: 600,
-      fitContent: false,
-      centerscreen: true,
-      resizable: true,
+          finish(selectedResult);
+          dialog.window.close();
+        },
+      });
+      dialog.setDialogData({
+        beforeUnloadCallback: () => {
+          finish(null);
+        },
+      });
+
+      dialog.open("Kentridge: Metadata Results", {
+        width: 900,
+        height: 600,
+        fitContent: false,
+        centerscreen: true,
+        resizable: true,
+      });
     });
   }
 
@@ -320,6 +376,71 @@ class Kentridge {
       fitContent: true,
       centerscreen: true,
       resizable: false,
+    });
+  }
+
+  private showBatchFailureSummaryDialog(failedTitles: string[]) {
+    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
+    const uniqueTitles = Array.from(new Set(failedTitles));
+
+    dialog.addCell(0, 0, {
+      tag: "div",
+      namespace: "html",
+      styles: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        width: "100%",
+        minWidth: "720px",
+      },
+      children: [
+        {
+          tag: "p",
+          namespace: "html",
+          styles: { margin: "0", fontWeight: "bold", fontSize: "1.1em" },
+          properties: {
+            textContent: `Failed to fetch metadata for ${uniqueTitles.length} item(s):`,
+          },
+        },
+        {
+          tag: "div",
+          namespace: "html",
+          styles: {
+            width: "100%",
+            minHeight: "220px",
+            maxHeight: "420px",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            boxSizing: "border-box",
+            paddingRight: "4px",
+          },
+          children: uniqueTitles.map((title, index) => ({
+            tag: "div",
+            namespace: "html",
+            styles: {
+              border: "1px solid #c7c7c7",
+              borderRadius: "6px",
+              padding: "10px",
+              backgroundColor: "#fff",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+            },
+            properties: {
+              textContent: `${index + 1}. ${title}`,
+            },
+          })),
+        },
+      ],
+    });
+    dialog.addButton("OK", "ok");
+    dialog.open("Kentridge: Batch Summary", {
+      width: 860,
+      height: 520,
+      fitContent: false,
+      centerscreen: true,
+      resizable: true,
     });
   }
 
