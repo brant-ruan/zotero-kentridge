@@ -6,7 +6,7 @@
   onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })"
 >
   <label><html:h2 data-l10n-id="kentridge-pref-title"></html:h2></label>
-  
+
   <groupbox>
     <label data-l10n-id="kentridge-pref-data-providers"></label>
     <hbox align="center">
@@ -15,11 +15,16 @@
         preference="dataprovider.dblp.enable"
         data-l10n-id="kentridge-pref-provider-dblp-label"
       />
+    </hbox>
+    <hbox
+      id="kentridge-pref-provider-dblp-apikey-box"
+      align="center"
+      hidden="true"
+    >
       <label data-l10n-id="kentridge-pref-api-key-label"></label>
       <textbox
         id="kentridge-pref-provider-dblp-apikey"
         preference="dataprovider.dblp.apiKey"
-        disabled="true"
       />
     </hbox>
   </groupbox>

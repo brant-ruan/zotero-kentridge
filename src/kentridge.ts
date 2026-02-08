@@ -1,7 +1,12 @@
+import { MetadataItem } from "./modules/dataprovider/interface";
+import { getEnabledProviderConfigs } from "./modules/dataprovider/registry";
+import { getPref } from "./utils/prefs";
 
-import { DblpProvider } from './modules/dataprovider/dblp';
-import { MetadataItem } from './modules/dataprovider/interface';
-import { getPref } from './utils/prefs';
+interface SearchResult {
+  providerKey: string;
+  providerName: string;
+  metadata: MetadataItem;
+}
 
 class Kentridge {
   private static instance: Kentridge;
@@ -16,163 +21,267 @@ class Kentridge {
   }
 
   public async fetchMetadataForSelectedItem() {
-    if (!getPref('dataprovider.dblp.enable')) {
-      Zotero.debug('[kentridge] DBLP provider is disabled.');
-      return;
-    }
-
     const pane = Zotero.getActiveZoteroPane();
     const selectedItems = pane.getSelectedItems();
     if (selectedItems.length !== 1) {
-      Zotero.debug('Kentridge: Please select a single item.');
+      Zotero.debug("[kentridge] Please select exactly one item.");
       return;
     }
+    const enabledProviders = getEnabledProviderConfigs();
+    if (enabledProviders.length === 0) {
+      this.showInfoDialog("Kentridge", "No metadata provider is enabled.");
+      return;
+    }
+
     const item = selectedItems[0];
-    const title = item.getField('title');
+    const title = item.getField("title");
     if (!title) {
-      Zotero.debug('Kentridge: Selected item has no title.');
+      Zotero.debug("[kentridge] Selected item has no title.");
       return;
     }
 
     Zotero.debug(`[kentridge] Fetching for title: ${title}`);
+    const results = await this.fetchFromEnabledProviders(
+      title,
+      enabledProviders,
+    );
 
-    const dblpApiKey = getPref('dataprovider.dblp.apiKey');
-    const dblpProvider = new DblpProvider(dblpApiKey);
-    const results = await dblpProvider.fetchByTitle(title);
-
-    Zotero.debug(`[kentridge] Fetched results: ${JSON.stringify(results, null, 2)}`);
-
-    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
-    
     if (results.length === 0) {
-      dialog.setDialogData({
-        title: 'Kentridge',
-        body: 'No results found.',
-        buttons: [{ label: 'OK', onClick: () => { dialog.window.close(); } }],
-      });
-      dialog.open('Kentridge');
+      this.showInfoDialog("Kentridge", "No metadata match was found.");
       return;
     }
 
-    const resultBody = results
-      .map(
-        (result, index) => `
-      <div class="result-item" data-index="${index}">
-        <div class="result-title">${result.title}</div>
-        <div class="result-creators">${result.creators
-          .map((c: any) => `${c.lastName}, ${c.firstName}`)
-          .join('; ')}</div>
-        <div class="result-date">${result.date || ''}</div>
-      </div>
-    `
-      )
-      .join('');
+    this.showResultSelectionDialog(item, results);
+  }
 
-    let selectedIndex = -1;
+  private async fetchFromEnabledProviders(
+    title: string,
+    enabledProviders: ReturnType<typeof getEnabledProviderConfigs>,
+  ): Promise<SearchResult[]> {
+    const allResults: SearchResult[] = [];
+    for (const providerConfig of enabledProviders) {
+      const apiKey = providerConfig.apiKeyPrefKey
+        ? String(getPref(providerConfig.apiKeyPrefKey) || "")
+        : undefined;
+      const provider = providerConfig.createProvider(apiKey);
 
-    dialog.setDialogData({
-      title: 'Kentridge: Metadata Results',
-      body: `
-        <style>
-          .result-item {
-            padding: 10px;
-            border-bottom: 1px solid #ccc;
-            cursor: pointer;
-          }
-          .result-item:hover {
-            background-color: #f0f0f0;
-          }
-          .result-item.selected {
-            background-color: #cce5ff;
-          }
-          .result-title {
-            font-weight: bold;
-          }
-        </style>
-        <div id="results-container">${resultBody}</div>
-      `,
-      buttons: [
-        { label: 'Cancel', onClick: () => dialog.window.close() },
+      try {
+        const results = await provider.fetchByTitle(title);
+        results.forEach((metadata) => {
+          allResults.push({
+            providerKey: providerConfig.key,
+            providerName: providerConfig.name,
+            metadata,
+          });
+        });
+      } catch (error) {
+        Zotero.debug(
+          `[kentridge] Provider ${providerConfig.key} failed: ${String(error)}`,
+        );
+      }
+    }
+    return allResults;
+  }
+
+  private showResultSelectionDialog(
+    item: Zotero.Item,
+    results: SearchResult[],
+  ) {
+    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
+    const selectId = "kentridge-result-select";
+
+    dialog.addCell(0, 0, {
+      tag: "div",
+      namespace: "html",
+      styles: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        minWidth: "760px",
+      },
+      children: [
         {
-          label: 'OK',
-          onClick: () => {
-            if (selectedIndex > -1) {
-              this.updateItemWithMetadata(item, results[selectedIndex]);
-            }
-            dialog.window.close();
+          tag: "p",
+          namespace: "html",
+          styles: { margin: "0", fontWeight: "bold" },
+          properties: {
+            textContent: "Select a metadata entry to apply:",
           },
         },
+        {
+          tag: "select",
+          namespace: "html",
+          id: selectId,
+          attributes: {
+            size: 14,
+          },
+          styles: {
+            width: "100%",
+            minHeight: "320px",
+            fontFamily: "monospace",
+          },
+          children: results.map((result, index) => ({
+            tag: "option",
+            namespace: "html",
+            properties: {
+              value: String(index),
+              textContent: this.formatResultLabel(result),
+            },
+          })),
+        },
       ],
-      loadCallback: () => {
-        const container = dialog.window.document.getElementById('results-container');
-        if (container) {
-          container.addEventListener('click', (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            const itemElement = target.closest('.result-item');
-            if (itemElement) {
-              const allItems = container.querySelectorAll('.result-item');
-              allItems.forEach((el: Element) => el.classList.remove('selected'));
-              itemElement.classList.add('selected');
-              selectedIndex = parseInt(
-                itemElement.getAttribute('data-index')!,
-                10
-              );
-            }
-          });
+    });
+    dialog.addButton("Cancel", "cancel");
+    dialog.addButton("Apply", "apply", {
+      noClose: true,
+      callback: () => {
+        const selectedResult = this.getSelectedResult(
+          dialog.window,
+          selectId,
+          results,
+        );
+        if (!selectedResult) {
+          this.showInfoDialog("Kentridge", "Please select one result.");
+          return;
         }
+
+        void this.updateItemWithMetadata(item, selectedResult.metadata);
+        dialog.window.close();
       },
     });
-    dialog.open('Kentridge: Metadata Results');
+
+    dialog.open("Kentridge: Metadata Results", {
+      width: 900,
+      height: 600,
+      fitContent: false,
+      centerscreen: true,
+      resizable: true,
+    });
+  }
+
+  private getSelectedResult(
+    win: Window,
+    selectId: string,
+    results: SearchResult[],
+  ): SearchResult | null {
+    const selectElement = win.document.getElementById(
+      selectId,
+    ) as HTMLSelectElement | null;
+    if (!selectElement || selectElement.selectedIndex < 0) {
+      return null;
+    }
+
+    return results[selectElement.selectedIndex] ?? null;
+  }
+
+  private formatResultLabel(result: SearchResult): string {
+    const creators = result.metadata.creators
+      .map((creator) =>
+        creator.firstName
+          ? `${creator.lastName}, ${creator.firstName}`
+          : creator.lastName,
+      )
+      .join("; ");
+
+    const parts = [
+      `[${result.providerName}]`,
+      result.metadata.title || "Untitled",
+      creators || "Unknown creators",
+      result.metadata.date || "n.d.",
+    ];
+    return parts.join(" | ");
+  }
+
+  private showInfoDialog(title: string, message: string) {
+    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
+    dialog.addCell(0, 0, {
+      tag: "p",
+      namespace: "html",
+      properties: { textContent: message },
+      styles: { margin: "0", minWidth: "360px" },
+    });
+    dialog.addButton("OK", "ok");
+    dialog.open(title, {
+      fitContent: true,
+      centerscreen: true,
+      resizable: false,
+    });
   }
 
   private async updateItemWithMetadata(
     item: Zotero.Item,
-    metadata: MetadataItem
+    metadata: MetadataItem,
   ) {
-    const updateStrategy = getPref('updateStrategy');
+    const updateStrategy = getPref("updateStrategy");
 
-    if (updateStrategy === 'replace') {
-      item.setField('itemType', metadata.itemType);
-      item.setField('title', metadata.title);
-      item.setCreators(metadata.creators);
-      if (metadata.date) item.setField('date', metadata.date);
-      if (metadata.publicationTitle)
-        item.setField('publicationTitle', metadata.publicationTitle);
-      if (metadata.volume) item.setField('volume', metadata.volume);
-      if (metadata.issue) item.setField('issue', metadata.issue);
-      if (metadata.pages) item.setField('pages', metadata.pages);
-      if (metadata.DOI) item.setField('DOI', metadata.DOI);
-      if (metadata.url) item.setField('url', metadata.url);
-      if (metadata.abstractNote)
-        item.setField('abstractNote', metadata.abstractNote);
+    if (updateStrategy === "replace") {
+      this.applyItemType(item, metadata.itemType);
+      this.replaceFields(item, metadata);
+      item.setCreators(metadata.creators || []);
     } else {
-      // Supplement
-      if (!item.getField('itemType'))
-        item.setField('itemType', metadata.itemType);
-      if (!item.getField('title')) item.setField('title', metadata.title);
-      if (item.getCreators().length === 0) item.setCreators(metadata.creators);
-      if (!item.getField('date') && metadata.date)
-        item.setField('date', metadata.date);
-      if (!item.getField('publicationTitle') && metadata.publicationTitle)
-        item.setField('publicationTitle', metadata.publicationTitle);
-      if (!item.getField('volume') && metadata.volume)
-        item.setField('volume', metadata.volume);
-      if (!item.getField('issue') && metadata.issue)
-        item.setField('issue', metadata.issue);
-      if (!item.getField('pages') && metadata.pages)
-        item.setField('pages', metadata.pages);
-      if (!item.getField('DOI') && metadata.DOI)
-        item.setField('DOI', metadata.DOI);
-      if (!item.getField('url') && metadata.url)
-        item.setField('url', metadata.url);
-      if (!item.getField('abstractNote') && metadata.abstractNote)
-        item.setField('abstractNote', metadata.abstractNote);
+      this.supplementFields(item, metadata);
+      if (item.getCreators().length === 0 && metadata.creators?.length) {
+        item.setCreators(metadata.creators);
+      }
     }
 
     await item.saveTx();
     Zotero.debug(
-      `[kentridge] Updated item ${item.id} with metadata from DBLP.`
+      `[kentridge] Updated item ${item.id} with metadata using "${updateStrategy}" mode.`,
     );
+  }
+
+  private applyItemType(item: Zotero.Item, itemType: string) {
+    if (!itemType) {
+      return;
+    }
+
+    const itemTypeID = Zotero.ItemTypes.getID(itemType);
+    if (typeof itemTypeID === "number" && item.itemTypeID !== itemTypeID) {
+      item.setType(itemTypeID);
+    }
+  }
+
+  private replaceFields(item: Zotero.Item, metadata: MetadataItem) {
+    this.setField(item, "title", metadata.title, true);
+    this.setField(item, "date", metadata.date, true);
+    this.setField(item, "publicationTitle", metadata.publicationTitle, true);
+    this.setField(item, "volume", metadata.volume, true);
+    this.setField(item, "issue", metadata.issue, true);
+    this.setField(item, "pages", metadata.pages, true);
+    this.setField(item, "DOI", metadata.DOI, true);
+    this.setField(item, "url", metadata.url, true);
+    this.setField(item, "abstractNote", metadata.abstractNote, true);
+  }
+
+  private supplementFields(item: Zotero.Item, metadata: MetadataItem) {
+    this.setField(item, "title", metadata.title, false);
+    this.setField(item, "date", metadata.date, false);
+    this.setField(item, "publicationTitle", metadata.publicationTitle, false);
+    this.setField(item, "volume", metadata.volume, false);
+    this.setField(item, "issue", metadata.issue, false);
+    this.setField(item, "pages", metadata.pages, false);
+    this.setField(item, "DOI", metadata.DOI, false);
+    this.setField(item, "url", metadata.url, false);
+    this.setField(item, "abstractNote", metadata.abstractNote, false);
+  }
+
+  private setField(
+    item: Zotero.Item,
+    fieldName: string,
+    value: unknown,
+    replace: boolean,
+  ) {
+    const nextValue = typeof value === "string" ? value.trim() : "";
+    if (replace) {
+      item.setField(fieldName, nextValue);
+      return;
+    }
+
+    const currentValue = String(item.getField(fieldName) || "").trim();
+    if (!currentValue && nextValue) {
+      item.setField(fieldName, nextValue);
+    }
   }
 }
 

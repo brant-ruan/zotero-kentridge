@@ -1,4 +1,5 @@
 import { registerContextMenu } from "./ui";
+import { registerPrefsScripts } from "./modules/preferenceScript";
 import {
   initLocale,
   registerMainWindowLocale,
@@ -25,7 +26,7 @@ async function onStartup() {
 }
 
 async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
-  Zotero.debug('[kentridge] onMainWindowLoad');
+  Zotero.debug("[kentridge] onMainWindowLoad");
   // Create ztoolkit for every window
   addon.data.ztoolkit = createZToolkit();
   registerMainWindowLocale(win);
@@ -40,4 +41,16 @@ function onShutdown() {
   Zotero.debug("Bye-bye, Kentridge!");
 }
 
-export default { onStartup, onShutdown, onMainWindowLoad, onMainWindowUnload };
+async function onPrefsEvent(type: string, data: { [key: string]: any }) {
+  if (type === "load") {
+    registerPrefsScripts(data.window as Window);
+  }
+}
+
+export default {
+  onStartup,
+  onShutdown,
+  onMainWindowLoad,
+  onMainWindowUnload,
+  onPrefsEvent,
+};
