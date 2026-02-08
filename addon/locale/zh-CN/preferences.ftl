@@ -1,3 +1,4 @@
+prefs-title = Kentridge
 pref-title = 插件模板设置示例
 pref-enable =
     .label = 开启

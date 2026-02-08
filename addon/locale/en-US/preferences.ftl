@@ -1,3 +1,4 @@
+prefs-title = Kentridge
 kentridge-pref-title = Kentridge Settings
 kentridge-pref-data-providers = Data Providers
 kentridge-pref-provider-dblp-label =

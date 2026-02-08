@@ -1,6 +1,7 @@
 import { registerContextMenu } from "./ui";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import {
+  getString,
   initLocale,
   registerMainWindowLocale,
   unregisterMainWindowLocale,
@@ -15,6 +16,7 @@ async function onStartup() {
   ]);
 
   initLocale();
+  await registerPreferencePane();
 
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win as any)),
@@ -39,6 +41,15 @@ async function onMainWindowUnload(win: _ZoteroTypes.MainWindow) {
 
 function onShutdown() {
   Zotero.debug("Bye-bye, Kentridge!");
+}
+
+async function registerPreferencePane() {
+  await Zotero.PreferencePanes.register({
+    pluginID: addon.data.config.addonID,
+    src: `${rootURI}content/preferences.xhtml`,
+    label: getString("prefs-title"),
+    image: `chrome://${addon.data.config.addonRef}/content/icons/favicon.png`,
+  });
 }
 
 async function onPrefsEvent(type: string, data: { [key: string]: any }) {
