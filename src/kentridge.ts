@@ -88,7 +88,7 @@ class Kentridge {
     results: SearchResult[],
   ) {
     const dialog = new addon.data.ztoolkit.Dialog(1, 1);
-    const selectId = "kentridge-result-select";
+    const resultRadioName = "kentridge-result-radio";
 
     dialog.addCell(0, 0, {
       tag: "div",
@@ -97,7 +97,9 @@ class Kentridge {
         display: "flex",
         flexDirection: "column",
         gap: "8px",
+        width: "100%",
         minWidth: "760px",
+        maxWidth: "100%",
       },
       children: [
         {
@@ -109,25 +111,22 @@ class Kentridge {
           },
         },
         {
-          tag: "select",
+          tag: "div",
           namespace: "html",
-          id: selectId,
-          attributes: {
-            size: 14,
-          },
           styles: {
             width: "100%",
-            minHeight: "320px",
-            fontFamily: "monospace",
+            minHeight: "360px",
+            maxHeight: "420px",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            boxSizing: "border-box",
+            paddingRight: "4px",
           },
-          children: results.map((result, index) => ({
-            tag: "option",
-            namespace: "html",
-            properties: {
-              value: String(index),
-              textContent: this.formatResultLabel(result),
-            },
-          })),
+          children: results.map((result, index) =>
+            this.buildResultCard(result, index, resultRadioName),
+          ),
         },
       ],
     });
@@ -137,7 +136,7 @@ class Kentridge {
       callback: () => {
         const selectedResult = this.getSelectedResult(
           dialog.window,
-          selectId,
+          resultRadioName,
           results,
         );
         if (!selectedResult) {
@@ -159,37 +158,150 @@ class Kentridge {
     });
   }
 
+  private buildResultCard(
+    result: SearchResult,
+    index: number,
+    radioName: string,
+  ) {
+    const title = result.metadata.title || "Untitled";
+    const creators = this.formatCreators(result.metadata.creators);
+    const venue = result.metadata.publicationTitle || "Unknown venue";
+    const year = result.metadata.date || "n.d.";
+    const doi = result.metadata.DOI || "";
+
+    return {
+      tag: "label",
+      namespace: "html",
+      styles: {
+        display: "grid",
+        gridTemplateColumns: "22px 1fr",
+        gap: "10px",
+        width: "100%",
+        boxSizing: "border-box",
+        border: "1px solid #c7c7c7",
+        borderRadius: "6px",
+        padding: "10px",
+        cursor: "pointer",
+        backgroundColor: "#fff",
+      },
+      children: [
+        {
+          tag: "input",
+          namespace: "html",
+          attributes: {
+            type: "radio",
+            name: radioName,
+            value: String(index),
+          },
+          properties: {
+            checked: index === 0,
+          },
+          styles: {
+            marginTop: "2px",
+          },
+        },
+        {
+          tag: "div",
+          namespace: "html",
+          styles: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+            minWidth: "0",
+          },
+          children: [
+            {
+              tag: "div",
+              namespace: "html",
+              properties: {
+                textContent: title,
+              },
+              styles: {
+                fontWeight: "bold",
+                lineHeight: "1.3",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+              },
+            },
+            {
+              tag: "div",
+              namespace: "html",
+              properties: {
+                textContent: `${venue} | ${year} | ${result.providerName}`,
+              },
+              styles: {
+                fontSize: "0.95em",
+                color: "#444",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+              },
+            },
+            {
+              tag: "div",
+              namespace: "html",
+              properties: {
+                textContent: creators,
+              },
+              styles: {
+                fontSize: "0.92em",
+                color: "#333",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+              },
+            },
+            ...(doi
+              ? [
+                  {
+                    tag: "div",
+                    namespace: "html",
+                    properties: {
+                      textContent: `DOI: ${doi}`,
+                    },
+                    styles: {
+                      fontSize: "0.9em",
+                      color: "#555",
+                      whiteSpace: "normal",
+                      wordBreak: "break-all",
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
+    };
+  }
+
   private getSelectedResult(
     win: Window,
-    selectId: string,
+    radioName: string,
     results: SearchResult[],
   ): SearchResult | null {
-    const selectElement = win.document.getElementById(
-      selectId,
-    ) as HTMLSelectElement | null;
-    if (!selectElement || selectElement.selectedIndex < 0) {
+    const selectedRadio = win.document.querySelector(
+      `input[type="radio"][name="${radioName}"]:checked`,
+    ) as HTMLInputElement | null;
+    if (!selectedRadio) {
       return null;
     }
 
-    return results[selectElement.selectedIndex] ?? null;
+    const selectedIndex = Number.parseInt(selectedRadio.value, 10);
+    if (Number.isNaN(selectedIndex) || selectedIndex < 0) {
+      return null;
+    }
+    return results[selectedIndex] ?? null;
   }
 
-  private formatResultLabel(result: SearchResult): string {
-    const creators = result.metadata.creators
+  private formatCreators(creators: MetadataItem["creators"]): string {
+    if (!creators?.length) {
+      return "Unknown creators";
+    }
+    return creators
       .map((creator) =>
         creator.firstName
           ? `${creator.lastName}, ${creator.firstName}`
           : creator.lastName,
       )
       .join("; ");
-
-    const parts = [
-      `[${result.providerName}]`,
-      result.metadata.title || "Untitled",
-      creators || "Unknown creators",
-      result.metadata.date || "n.d.",
-    ];
-    return parts.join(" | ");
   }
 
   private showInfoDialog(title: string, message: string) {
