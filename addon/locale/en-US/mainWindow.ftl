@@ -1,2 +1,4 @@
-menu-label = Kentridge
-menu-fetch-metadata-label = Fetch Metadata by Title
+menu-label = 
+    .label = Kentridge
+menu-fetch-metadata-label =
+    .label = Fetch Metadata by Title

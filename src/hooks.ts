@@ -1,9 +1,10 @@
-import { getString, initLocale } from "./utils/locale";
-import { registerPrefsScripts } from "./modules/preferenceScript";
-import { createZToolkit } from "./utils/ztoolkit";
 import { registerContextMenu } from "./ui";
-
-const menuID = 'kentridge-item-menu';
+import {
+  initLocale,
+  registerMainWindowLocale,
+  unregisterMainWindowLocale,
+} from "./utils/locale";
+import { createZToolkit } from "./utils/ztoolkit";
 
 async function onStartup() {
   await Promise.all([
@@ -13,15 +14,9 @@ async function onStartup() {
   ]);
 
   initLocale();
-  
-  for (const win of Zotero.getMainWindows()) {
-    win.MozXULElement.insertFTLIfNeeded(
-      `${addon.data.config.addonRef}-mainWindow.ftl`,
-    );
-  }
 
   await Promise.all(
-    Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
+    Zotero.getMainWindows().map((win) => onMainWindowLoad(win as any)),
   );
 
   // Mark initialized as true to confirm plugin loading status
@@ -33,72 +28,16 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
   Zotero.debug('[kentridge] onMainWindowLoad');
   // Create ztoolkit for every window
   addon.data.ztoolkit = createZToolkit();
-  
+  registerMainWindowLocale(win);
   registerContextMenu();
 }
 
-async function onMainWindowUnload(win: Window): Promise<void> {
-  Zotero.debug('[kentridge] onMainWindowUnload');
-  ztoolkit.unregisterAll();
+async function onMainWindowUnload(win: _ZoteroTypes.MainWindow) {
+  unregisterMainWindowLocale(win);
 }
 
-function onShutdown(): void {
-  ztoolkit.unregisterAll();
-  // Remove addon object
-  addon.data.alive = false;
-  // @ts-expect-error - Plugin instance is not typed
-  delete Zotero[addon.data.config.addonInstance];
+function onShutdown() {
+  Zotero.debug("Bye-bye, Kentridge!");
 }
 
-/**
- * This function is just an example of dispatcher for Notify events.
- * Any operations should be placed in a function to keep this funcion clear.
- */
-async function onNotify(
-  event: string,
-  type: string,
-  ids: Array<string | number>,
-  extraData: { [key: string]: any },
-) {
-  // You can add your code to the corresponding notify type
-  ztoolkit.log("notify", event, type, ids, extraData);
-}
-
-/**
- * This function is just an example of dispatcher for Preference UI events.
- * Any operations should be placed in a function to keep this funcion clear.
- * @param type event type
- * @param data event data
- */
-async function onPrefsEvent(type: string, data: { [key: string]: any }) {
-  switch (type) {
-    case "load":
-      registerPrefsScripts(data.window);
-      break;
-    default:
-      return;
-  }
-}
-
-function onShortcuts(type: string) {
-  return;
-}
-
-function onDialogEvents(type: string) {
-  return;
-}
-
-// Add your hooks here. For element click, etc.
-// Keep in mind hooks only do dispatch. Don't add code that does real jobs in hooks.
-// Otherwise the code would be hard to read and maintain.
-
-export default {
-  onStartup,
-  onShutdown,
-  onMainWindowLoad,
-  onMainWindowUnload,
-  onNotify,
-  onPrefsEvent,
-  onShortcuts,
-  onDialogEvents,
-};
+export default { onStartup, onShutdown, onMainWindowLoad, onMainWindowUnload };

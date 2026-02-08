@@ -42,13 +42,15 @@ class Kentridge {
 
     Zotero.debug(`[kentridge] Fetched results: ${JSON.stringify(results, null, 2)}`);
 
+    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
+    
     if (results.length === 0) {
-      const alert = new addon.data.ztoolkit.Dialog({
+      dialog.setDialogData({
         title: 'Kentridge',
         body: 'No results found.',
-        buttons: [{ label: 'OK', onClick: () => { alert.close(); } }],
+        buttons: [{ label: 'OK', onClick: () => { dialog.window.close(); } }],
       });
-      alert.show();
+      dialog.open('Kentridge');
       return;
     }
 
@@ -68,7 +70,7 @@ class Kentridge {
 
     let selectedIndex = -1;
 
-    const dialog = new addon.data.ztoolkit.Dialog({
+    dialog.setDialogData({
       title: 'Kentridge: Metadata Results',
       body: `
         <style>
@@ -90,19 +92,19 @@ class Kentridge {
         <div id="results-container">${resultBody}</div>
       `,
       buttons: [
-        { label: 'Cancel', onClick: () => dialog.close() },
+        { label: 'Cancel', onClick: () => dialog.window.close() },
         {
           label: 'OK',
           onClick: () => {
             if (selectedIndex > -1) {
               this.updateItemWithMetadata(item, results[selectedIndex]);
             }
-            dialog.close();
+            dialog.window.close();
           },
         },
       ],
-      onLoad: () => {
-        const container = dialog.getDoc().getElementById('results-container');
+      loadCallback: () => {
+        const container = dialog.window.document.getElementById('results-container');
         if (container) {
           container.addEventListener('click', (e: MouseEvent) => {
             const target = e.target as HTMLElement;
@@ -120,7 +122,7 @@ class Kentridge {
         }
       },
     });
-    dialog.show();
+    dialog.open('Kentridge: Metadata Results');
   }
 
   private async updateItemWithMetadata(
