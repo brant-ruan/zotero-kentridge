@@ -144,8 +144,11 @@ class Kentridge {
           return;
         }
 
-        void this.updateItemWithMetadata(item, selectedResult.metadata);
         dialog.window.close();
+        // Close dialog first to avoid perceived UI blocking, then update metadata.
+        Zotero.Promise.delay(0).then(() => {
+          void this.updateItemWithMetadata(item, selectedResult.metadata);
+        });
       },
     });
 
@@ -329,11 +332,11 @@ class Kentridge {
     if (updateStrategy === "replace") {
       this.applyItemType(item, metadata.itemType);
       this.replaceFields(item, metadata);
-      item.setCreators(metadata.creators || []);
+      this.setCreatorsIfChanged(item, metadata.creators || []);
     } else {
       this.supplementFields(item, metadata);
       if (item.getCreators().length === 0 && metadata.creators?.length) {
-        item.setCreators(metadata.creators);
+        this.setCreatorsIfChanged(item, metadata.creators);
       }
     }
 
@@ -385,15 +388,44 @@ class Kentridge {
     replace: boolean,
   ) {
     const nextValue = typeof value === "string" ? value.trim() : "";
+    const currentValue = String(item.getField(fieldName) || "").trim();
+
     if (replace) {
-      item.setField(fieldName, nextValue);
+      if (currentValue !== nextValue) {
+        item.setField(fieldName, nextValue);
+      }
       return;
     }
 
-    const currentValue = String(item.getField(fieldName) || "").trim();
     if (!currentValue && nextValue) {
       item.setField(fieldName, nextValue);
     }
+  }
+
+  private setCreatorsIfChanged(
+    item: Zotero.Item,
+    nextCreators: MetadataItem["creators"],
+  ) {
+    const currentCreators = item.getCreators() || [];
+    if (
+      this.buildCreatorsSignature(currentCreators) ===
+      this.buildCreatorsSignature(nextCreators || [])
+    ) {
+      return;
+    }
+    item.setCreators(nextCreators || []);
+  }
+
+  private buildCreatorsSignature(creators: any[]): string {
+    return creators
+      .map((creator) =>
+        [
+          creator.creatorType || "",
+          String(creator.firstName || "").trim(),
+          String(creator.lastName || "").trim(),
+        ].join("|"),
+      )
+      .join(";");
   }
 }
 
