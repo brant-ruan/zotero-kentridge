@@ -1,30 +1,29 @@
-
 /**
  * A comprehensive list of Zotero creator types.
  */
 export type ZoteroCreatorType =
-  | 'author'
-  | 'contributor'
-  | 'editor'
-  | 'translator'
-  | 'seriesEditor'
-  | 'interviewee'
-  | 'interviewer'
-  | 'director'
-  | 'scriptwriter'
-  | 'producer'
-  | 'castMember'
-  | 'sponsor'
-  | 'cosponsor'
-  | 'wordsBy'
-  | 'performer'
-  | 'composer'
-  | 'artist'
-  | 'commenter'
-  | 'bookAuthor'
-  | 'counsel'
-  | 'recipient'
-  | 'reviewedAuthor';
+  | "author"
+  | "contributor"
+  | "editor"
+  | "translator"
+  | "seriesEditor"
+  | "interviewee"
+  | "interviewer"
+  | "director"
+  | "scriptwriter"
+  | "producer"
+  | "castMember"
+  | "sponsor"
+  | "cosponsor"
+  | "wordsBy"
+  | "performer"
+  | "composer"
+  | "artist"
+  | "commenter"
+  | "bookAuthor"
+  | "counsel"
+  | "recipient"
+  | "reviewedAuthor";
 
 /**
  * Standardized metadata structure for an item.

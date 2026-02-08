@@ -7,7 +7,7 @@ Kentridge is a Zotero plugin for fetching and applying bibliographic metadata by
 
 ## Why “Kentridge”?
 
-Kentridge is the location of the National University of Singapore, where the project author is doing a PhD.  
+Kentridge is the location of the National University of Singapore, where the project author is doing a PhD.
 
 It also exists for a practical reason: Zotero's built-in metadata coverage is not always enough for many computer science venues, especially conference-heavy ecosystems (for example, parts of the USENIX series). Kentridge helps fill that gap by querying external scholarly sources and applying structured metadata back to your items.
 
@@ -27,6 +27,7 @@ It also exists for a practical reason: Zotero's built-in metadata coverage is no
 - DBLP (`https://dblp.org/search/publ/api`)
 
 DBLP results are normalized before applying:
+
 - HTML entities are decoded (e.g. `&quot;`)
 - trailing title period is removed when needed
 - DBLP author suffixes like `0001` / `0002` are removed

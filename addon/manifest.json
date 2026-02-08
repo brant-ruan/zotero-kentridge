@@ -19,9 +19,7 @@
   },
   "chrome_manifest": {
     "content": {
-      "scripts": [
-        "content/scripts/__addonRef__.js"
-      ]
+      "scripts": ["content/scripts/__addonRef__.js"]
     },
     "window": {
       "kentridge/content/results.xhtml": "chrome://kentridge/content/results.xhtml"

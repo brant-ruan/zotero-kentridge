@@ -1,39 +1,30 @@
 import type { FluentMessageId } from "../../typings/i10n";
 
-const localeFilesForJS = [
-  "addon.ftl",
-  "mainWindow.ftl",
-  "preferences.ftl",
-];
+const localeFilesForJS = ["addon.ftl", "mainWindow.ftl", "preferences.ftl"];
 
-const localeFilesForMainWindow = [
-  "mainWindow.ftl",
-];
+const localeFilesForMainWindow = ["mainWindow.ftl"];
 
 function getLocaleFileFullNames(files: string[]) {
-  return files.map(file => `${addon.data.config.addonRef}-${file}`);
+  return files.map((file) => `${addon.data.config.addonRef}-${file}`);
 }
 
 export function registerMainWindowLocale(win: Window) {
-  getLocaleFileFullNames(localeFilesForMainWindow)
-    .forEach(file => (win as any).MozXULElement.insertFTLIfNeeded(file));
+  getLocaleFileFullNames(localeFilesForMainWindow).forEach((file) =>
+    (win as any).MozXULElement.insertFTLIfNeeded(file),
+  );
 }
 
 export function unregisterMainWindowLocale(win: Window) {
-  getLocaleFileFullNames(localeFilesForMainWindow)
-    .forEach(file => win.document
-      .querySelector(`[href="${file}"]`)
-      ?.remove());
+  getLocaleFileFullNames(localeFilesForMainWindow).forEach((file) =>
+    win.document.querySelector(`[href="${file}"]`)?.remove(),
+  );
 }
 
 /**
  * Initialize locale data
  */
 export function initLocale() {
-  const l10n = new Localization(
-    getLocaleFileFullNames(localeFilesForJS),
-    true,
-  );
+  const l10n = new Localization(getLocaleFileFullNames(localeFilesForJS), true);
   addon.data.locale = {
     current: l10n,
   };
@@ -46,13 +37,19 @@ interface GetStringOptions {
 
 export function getString(id: FluentMessageId): string;
 export function getString(id: FluentMessageId, branch: string): string;
-export function getString(id: FluentMessageId, options: GetStringOptions): string;
+export function getString(
+  id: FluentMessageId,
+  options: GetStringOptions,
+): string;
 export function getString(...inputs: any[]): string {
   const { id, options } = normalizeOptions(inputs);
   return _getString(id, options);
 }
 
-function normalizeOptions(inputs: any[]): { id: FluentMessageId; options: GetStringOptions } {
+function normalizeOptions(inputs: any[]): {
+  id: FluentMessageId;
+  options: GetStringOptions;
+} {
   if (inputs.length === 1) {
     return { id: inputs[0], options: {} };
   }
@@ -80,28 +77,26 @@ interface Pattern {
 
 function _getString(id: FluentMessageId, options: GetStringOptions): string {
   const localeID = getLocaleID(id);
-  if (!localeID)
-    return id;
+  if (!localeID) return id;
 
   const { branch, args } = options;
 
-  const msgs = addon.data.locale?.current.formatMessagesSync([{ id: localeID, args }]);
+  const msgs = addon.data.locale?.current.formatMessagesSync([
+    { id: localeID, args },
+  ]);
   const pattern = msgs?.[0] as Pattern | undefined;
-  if (!pattern)
-    return localeID;
+  if (!pattern) return localeID;
 
   if (branch) {
-    const attr = pattern.attributes?.find(a => a.name === branch);
+    const attr = pattern.attributes?.find((a) => a.name === branch);
     return attr?.value ?? localeID;
   }
 
-  if (pattern.value)
-    return pattern.value;
+  if (pattern.value) return pattern.value;
 
   // fallback to `label` branch
-  const attr = pattern.attributes?.find(a => a.name === "label");
-  if (attr)
-    return attr?.value ?? localeID;
+  const attr = pattern.attributes?.find((a) => a.name === "label");
+  if (attr) return attr?.value ?? localeID;
 
   return localeID;
 }
