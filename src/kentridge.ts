@@ -40,41 +40,58 @@ class Kentridge {
     for (let index = 0; index < selectedItems.length; index++) {
       const item = selectedItems[index];
       const title = String(item.getField("title") || "").trim();
-      if (!title) {
-        Zotero.debug(`[kentridge] Skip item ${item.id}: empty title.`);
-        failedTitles.push(`(untitled item #${item.id})`);
-        continue;
+      const displayTitle = title || `(untitled item #${item.id})`;
+
+      try {
+        if (!item.isRegularItem?.()) {
+          failedTitles.push(displayTitle);
+          Zotero.debug(
+            `[kentridge] Skip item ${item.id}: not a regular bibliographic item.`,
+          );
+          continue;
+        }
+
+        if (!title) {
+          Zotero.debug(`[kentridge] Skip item ${item.id}: empty title.`);
+          failedTitles.push(displayTitle);
+          continue;
+        }
+
+        Zotero.debug(
+          `[kentridge] [${index + 1}/${selectedItems.length}] Fetching for title: ${title}`,
+        );
+        const results = await this.fetchFromEnabledProviders(
+          title,
+          enabledProviders,
+        );
+
+        if (results.length === 0) {
+          failedTitles.push(displayTitle);
+          continue;
+        }
+
+        const action = await this.showResultSelectionDialog(
+          item,
+          results,
+          index + 1,
+          selectedItems.length,
+        );
+
+        if (action === "abort") {
+          break;
+        }
+
+        if (!action) {
+          continue;
+        }
+
+        await this.updateItemWithMetadata(item, action.metadata);
+      } catch (error) {
+        failedTitles.push(displayTitle);
+        Zotero.debug(
+          `[kentridge] Failed to process item ${item.id}: ${String(error)}`,
+        );
       }
-
-      Zotero.debug(
-        `[kentridge] [${index + 1}/${selectedItems.length}] Fetching for title: ${title}`,
-      );
-      const results = await this.fetchFromEnabledProviders(
-        title,
-        enabledProviders,
-      );
-
-      if (results.length === 0) {
-        failedTitles.push(title);
-        continue;
-      }
-
-      const action = await this.showResultSelectionDialog(
-        item,
-        results,
-        index + 1,
-        selectedItems.length,
-      );
-
-      if (action === "abort") {
-        break;
-      }
-
-      if (!action) {
-        continue;
-      }
-
-      await this.updateItemWithMetadata(item, action.metadata);
     }
 
     if (failedTitles.length > 0) {
@@ -449,6 +466,7 @@ class Kentridge {
     metadata: MetadataItem,
   ) {
     const updateStrategy = getPref("updateStrategy");
+    const beforeSignature = this.buildItemSignature(item);
 
     if (updateStrategy === "replace") {
       this.applyItemType(item, metadata.itemType);
@@ -461,10 +479,17 @@ class Kentridge {
       }
     }
 
-    await item.saveTx();
-    Zotero.debug(
-      `[kentridge] Updated item ${item.id} with metadata using "${updateStrategy}" mode.`,
-    );
+    const afterSignature = this.buildItemSignature(item);
+    if (beforeSignature !== afterSignature) {
+      await item.saveTx();
+      Zotero.debug(
+        `[kentridge] Updated item ${item.id} with metadata using "${updateStrategy}" mode.`,
+      );
+    } else {
+      Zotero.debug(
+        `[kentridge] Item ${item.id} unchanged after metadata merge, skipped save.`,
+      );
+    }
   }
 
   private applyItemType(item: Zotero.Item, itemType: string) {
@@ -481,7 +506,7 @@ class Kentridge {
   private replaceFields(item: Zotero.Item, metadata: MetadataItem) {
     this.setField(item, "title", metadata.title, true);
     this.setField(item, "date", metadata.date, true);
-    this.setField(item, "publicationTitle", metadata.publicationTitle, true);
+    this.setVenueField(item, metadata.publicationTitle, true);
     this.setField(item, "volume", metadata.volume, true);
     this.setField(item, "issue", metadata.issue, true);
     this.setField(item, "pages", metadata.pages, true);
@@ -493,7 +518,7 @@ class Kentridge {
   private supplementFields(item: Zotero.Item, metadata: MetadataItem) {
     this.setField(item, "title", metadata.title, false);
     this.setField(item, "date", metadata.date, false);
-    this.setField(item, "publicationTitle", metadata.publicationTitle, false);
+    this.setVenueField(item, metadata.publicationTitle, false);
     this.setField(item, "volume", metadata.volume, false);
     this.setField(item, "issue", metadata.issue, false);
     this.setField(item, "pages", metadata.pages, false);
@@ -508,6 +533,10 @@ class Kentridge {
     value: unknown,
     replace: boolean,
   ) {
+    if (!this.isFieldValidForItemType(item, fieldName)) {
+      return;
+    }
+
     const nextValue = typeof value === "string" ? value.trim() : "";
     const currentValue = String(item.getField(fieldName) || "").trim();
 
@@ -520,6 +549,23 @@ class Kentridge {
 
     if (!currentValue && nextValue) {
       item.setField(fieldName, nextValue);
+    }
+  }
+
+  private setVenueField(item: Zotero.Item, venue: unknown, replace: boolean) {
+    const candidateFields = [
+      "publicationTitle",
+      "proceedingsTitle",
+      "bookTitle",
+      "seriesTitle",
+    ];
+
+    for (const fieldName of candidateFields) {
+      if (!this.isFieldValidForItemType(item, fieldName)) {
+        continue;
+      }
+      this.setField(item, fieldName, venue, replace);
+      return;
     }
   }
 
@@ -547,6 +593,47 @@ class Kentridge {
         ].join("|"),
       )
       .join(";");
+  }
+
+  private buildItemSignature(item: Zotero.Item): string {
+    const fields = [
+      "itemTypeID",
+      "title",
+      "date",
+      "publicationTitle",
+      "proceedingsTitle",
+      "bookTitle",
+      "seriesTitle",
+      "volume",
+      "issue",
+      "pages",
+      "DOI",
+      "url",
+      "abstractNote",
+    ];
+
+    const fieldPart = fields
+      .map((field) => {
+        if (field === "itemTypeID") {
+          return `${field}=${String(item.itemTypeID)}`;
+        }
+        return `${field}=${String(item.getField(field) || "").trim()}`;
+      })
+      .join("||");
+
+    const creatorPart = this.buildCreatorsSignature(item.getCreators() || []);
+    return `${fieldPart}||creators=${creatorPart}`;
+  }
+
+  private isFieldValidForItemType(
+    item: Zotero.Item,
+    fieldName: string,
+  ): boolean {
+    const fieldID = Zotero.ItemFields.getID(fieldName);
+    if (typeof fieldID !== "number") {
+      return false;
+    }
+    return Zotero.ItemFields.isValidForType(fieldID, item.itemTypeID);
   }
 }
 
