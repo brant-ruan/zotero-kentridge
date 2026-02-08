@@ -1,7 +1,7 @@
 {
   "name": "zotero-plugin-template",
   "type": "module",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Zotero Plugin Template",
   "config": {
     "addonName": "Zotero Plugin Template",
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
+    "@types/firefox-webext-browser": "^143.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.0",
     "@zotero-plugin/eslint-config": "^0.6.7",
