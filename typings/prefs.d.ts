@@ -7,8 +7,9 @@
 declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
-      "enable": boolean;
-      "input": string;
+      "dataprovider.dblp.enable": boolean;
+      "dataprovider.dblp.apiKey": string;
+      "updateStrategy": string;
     };
   }
 }

@@ -1,2 +1,3 @@
-pref("enable", true);
-pref("input", "This is input");
+pref('dataprovider.dblp.enable', true);
+pref('dataprovider.dblp.apiKey', '');
+pref('updateStrategy', 'replace');

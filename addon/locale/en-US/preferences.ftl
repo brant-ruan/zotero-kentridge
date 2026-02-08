@@ -1,5 +1,11 @@
-pref-title = Addon Template Example
-pref-enable =
-    .label = Enable
-pref-input = Input
-pref-help = { $name } Build { $version } { $time }
+kentridge-pref-title = Kentridge Settings
+kentridge-pref-data-providers = Data Providers
+kentridge-pref-provider-dblp-label =
+    .label = Enable DBLP
+kentridge-pref-api-key-label =
+    .value = API Key:
+kentridge-pref-update-strategy = Metadata Update Strategy
+kentridge-pref-update-strategy-replace =
+    .label = Replace existing metadata
+kentridge-pref-update-strategy-supplement =
+    .label = Supplement existing metadata

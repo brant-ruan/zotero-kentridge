@@ -16,5 +16,15 @@
       "strict_min_version": "6.999",
       "strict_max_version": "8.*"
     }
+  },
+  "chrome_manifest": {
+    "content": {
+      "scripts": [
+        "content/scripts/__addonRef__.js"
+      ]
+    },
+    "locale": {
+      "en-US": "locale/en-US/"
+    }
   }
 }
