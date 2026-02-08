@@ -5,6 +5,11 @@
 
 Kentridge is a Zotero plugin for fetching and applying bibliographic metadata by title.
 
+## Why “Kentridge”?
+
+Kentridge is the location of the National University of Singapore, where the project author is doing a PhD.  
+So yes, this plugin is named after a place that trained the author to chase metadata with the same determination used to chase deadlines.
+
 ## Features
 
 - Right-click menu in library items: `Kentridge -> Fetch Metadata by Title`
