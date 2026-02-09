@@ -10,6 +10,7 @@ declare namespace _ZoteroTypes {
       "dataprovider.dblp.enable": boolean;
       "dataprovider.dblp.apiKey": string;
       "updateStrategy": string;
+      "sorting.demoteCorr": boolean;
     };
   }
 }

@@ -10,3 +10,6 @@ kentridge-pref-update-strategy-replace =
     .label = Replace existing metadata
 kentridge-pref-update-strategy-supplement =
     .label = Supplement existing metadata
+kentridge-pref-result-ranking = Result Ranking
+kentridge-pref-sorting-demote-corr-label =
+    .label = Deprioritize CoRR entries

@@ -4,3 +4,6 @@ pref-enable =
     .label = 开启
 pref-input = 输入
 pref-help = { $name } Build { $version } { $time }
+kentridge-pref-result-ranking = 结果排序
+kentridge-pref-sorting-demote-corr-label =
+    .label = 将 CoRR 结果后置

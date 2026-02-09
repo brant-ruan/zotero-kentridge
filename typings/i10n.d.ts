@@ -12,6 +12,8 @@ export type FluentMessageId =
   | 'kentridge-pref-api-key-label'
   | 'kentridge-pref-data-providers'
   | 'kentridge-pref-provider-dblp-label'
+  | 'kentridge-pref-result-ranking'
+  | 'kentridge-pref-sorting-demote-corr-label'
   | 'kentridge-pref-title'
   | 'kentridge-pref-update-strategy'
   | 'kentridge-pref-update-strategy-replace'

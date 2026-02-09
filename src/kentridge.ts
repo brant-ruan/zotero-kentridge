@@ -6,6 +6,8 @@ interface SearchResult {
   providerKey: string;
   providerName: string;
   metadata: MetadataItem;
+  isExactTitleMatch?: boolean;
+  isCorrVenue?: boolean;
 }
 
 type SelectionAction = SearchResult | null | "abort";
@@ -70,9 +72,10 @@ class Kentridge {
           continue;
         }
 
+        const rankedResults = this.rankResultsForSelection(title, results);
         const action = await this.showResultSelectionDialog(
           item,
-          results,
+          rankedResults,
           index + 1,
           selectedItems.length,
         );
@@ -244,6 +247,7 @@ class Kentridge {
     const venue = result.metadata.publicationTitle || "Unknown venue";
     const year = result.metadata.date || "n.d.";
     const doi = result.metadata.DOI || "";
+    const isExactMatch = Boolean(result.isExactTitleMatch);
 
     return {
       tag: "label",
@@ -254,11 +258,11 @@ class Kentridge {
         gap: "10px",
         width: "100%",
         boxSizing: "border-box",
-        border: "1px solid #c7c7c7",
+        border: isExactMatch ? "1px solid #96c7b8" : "1px solid #c7c7c7",
         borderRadius: "6px",
         padding: "10px",
         cursor: "pointer",
-        backgroundColor: "#fff",
+        backgroundColor: isExactMatch ? "#f2faf7" : "#fff",
       },
       children: [
         {
@@ -295,10 +299,32 @@ class Kentridge {
               styles: {
                 fontWeight: "bold",
                 lineHeight: "1.3",
+                color: isExactMatch ? "#155f49" : "inherit",
                 whiteSpace: "normal",
                 wordBreak: "break-word",
               },
             },
+            ...(isExactMatch
+              ? [
+                  {
+                    tag: "div",
+                    namespace: "html",
+                    properties: {
+                      textContent: "Exact title match",
+                    },
+                    styles: {
+                      display: "inline-block",
+                      alignSelf: "flex-start",
+                      fontSize: "0.82em",
+                      color: "#155f49",
+                      backgroundColor: "#e1f3ec",
+                      border: "1px solid #b5dbcf",
+                      borderRadius: "999px",
+                      padding: "2px 8px",
+                    },
+                  },
+                ]
+              : []),
             {
               tag: "div",
               namespace: "html",
@@ -378,6 +404,53 @@ class Kentridge {
           : creator.lastName,
       )
       .join("; ");
+  }
+
+  private rankResultsForSelection(
+    originalTitle: string,
+    results: SearchResult[],
+  ): SearchResult[] {
+    const demoteCorr = Boolean(getPref("sorting.demoteCorr"));
+    const normalizedOriginalTitle =
+      this.normalizeTitleForComparison(originalTitle);
+
+    return results
+      .map((result) => {
+        const normalizedCandidateTitle = this.normalizeTitleForComparison(
+          result.metadata.title,
+        );
+        const venue = String(result.metadata.publicationTitle || "")
+          .trim()
+          .toLowerCase();
+        return {
+          ...result,
+          isExactTitleMatch:
+            normalizedOriginalTitle.length > 0 &&
+            normalizedCandidateTitle === normalizedOriginalTitle,
+          isCorrVenue: venue === "corr",
+        };
+      })
+      .sort((a, b) => {
+        if (Boolean(a.isExactTitleMatch) !== Boolean(b.isExactTitleMatch)) {
+          return a.isExactTitleMatch ? -1 : 1;
+        }
+        if (demoteCorr && Boolean(a.isCorrVenue) !== Boolean(b.isCorrVenue)) {
+          return a.isCorrVenue ? 1 : -1;
+        }
+        return 0;
+      });
+  }
+
+  private normalizeTitleForComparison(value: unknown): string {
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    return value
+      .trim()
+      .replace(/[.。]+$/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
   }
 
   private showInfoDialog(title: string, message: string) {
