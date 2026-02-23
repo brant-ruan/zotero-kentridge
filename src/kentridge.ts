@@ -363,33 +363,30 @@ class Kentridge {
                 tag: "tbody",
                 namespace: "html",
                 children: [
-                  this.buildBatchAssignRow(
-                    "Item Type",
-                    {
-                      tag: "select",
-                      namespace: "html",
-                      attributes: { id: itemTypeSelectID },
-                      styles: { width: "100%", boxSizing: "border-box" },
-                      children: [
-                        {
-                          tag: "option",
-                          namespace: "html",
-                          attributes: { value: "" },
-                          properties: { textContent: "(Keep unchanged)" },
+                  this.buildBatchAssignRow("Item Type", {
+                    tag: "select",
+                    namespace: "html",
+                    attributes: { id: itemTypeSelectID },
+                    styles: { width: "100%", boxSizing: "border-box" },
+                    children: [
+                      {
+                        tag: "option",
+                        namespace: "html",
+                        attributes: { value: "" },
+                        properties: { textContent: "(Keep unchanged)" },
+                      },
+                      ...itemTypes.map((itemType: { id: number }) => ({
+                        tag: "option",
+                        namespace: "html",
+                        attributes: { value: String(itemType.id) },
+                        properties: {
+                          textContent: Zotero.ItemTypes.getLocalizedString(
+                            itemType.id,
+                          ),
                         },
-                        ...itemTypes.map((itemType: { id: number }) => ({
-                          tag: "option",
-                          namespace: "html",
-                          attributes: { value: String(itemType.id) },
-                          properties: {
-                            textContent: Zotero.ItemTypes.getLocalizedString(
-                              itemType.id,
-                            ),
-                          },
-                        })),
-                      ],
-                    },
-                  ),
+                      })),
+                    ],
+                  }),
                   this.buildBatchAssignRow("Proceedings Title", {
                     tag: "input",
                     namespace: "html",
@@ -510,10 +507,7 @@ class Kentridge {
     });
   }
 
-  private buildBatchAssignRow(
-    fieldLabel: string,
-    inputCell: any,
-  ) {
+  private buildBatchAssignRow(fieldLabel: string, inputCell: any) {
     return {
       tag: "tr",
       namespace: "html",
@@ -546,10 +540,10 @@ class Kentridge {
   private hasBatchAssignInput(input: BatchAssignInput): boolean {
     return Boolean(
       input.itemTypeID ||
-        input.proceedingsTitle ||
-        input.conferenceName ||
-        input.publisher ||
-        input.date,
+      input.proceedingsTitle ||
+      input.conferenceName ||
+      input.publisher ||
+      input.date,
     );
   }
 
