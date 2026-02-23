@@ -21,6 +21,19 @@ export function registerContextMenu(): void {
             kentridge.fetchMetadataForSelectedItem();
           },
         },
+        {
+          menuType: "submenu",
+          l10nID: getLocaleID("menu-batch-assign-submenu-label"),
+          menus: [
+            {
+              menuType: "menuitem",
+              l10nID: getLocaleID("menu-batch-assign-open-label"),
+              onCommand: () => {
+                kentridge.batchAssignSelectedParentItems();
+              },
+            },
+          ],
+        },
       ],
     },
   ];

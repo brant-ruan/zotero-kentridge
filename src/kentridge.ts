@@ -12,6 +12,14 @@ interface SearchResult {
 
 type SelectionAction = SearchResult | null | "abort";
 
+interface BatchAssignInput {
+  itemTypeID?: number;
+  proceedingsTitle?: string;
+  conferenceName?: string;
+  publisher?: string;
+  date?: string;
+}
+
 class Kentridge {
   private static instance: Kentridge;
 
@@ -100,6 +108,39 @@ class Kentridge {
     if (failedTitles.length > 0) {
       this.showBatchFailureSummaryDialog(failedTitles);
     }
+  }
+
+  public async batchAssignSelectedParentItems() {
+    const selectedItems = this.getSelectedParentRegularItems();
+    if (selectedItems.length === 0) {
+      this.showInfoDialog(
+        "Kentridge",
+        "Please select at least one parent bibliographic item.",
+      );
+      return;
+    }
+
+    const input = await this.showBatchAssignDialog(selectedItems.length);
+    if (!input) {
+      return;
+    }
+
+    let updatedCount = 0;
+    let unchangedCount = 0;
+
+    for (const item of selectedItems) {
+      const changed = await this.applyBatchAssignToItem(item, input);
+      if (changed) {
+        updatedCount += 1;
+      } else {
+        unchangedCount += 1;
+      }
+    }
+
+    this.showInfoDialog(
+      "Kentridge",
+      `Batch assign completed. Updated: ${updatedCount}; Unchanged: ${unchangedCount}.`,
+    );
   }
 
   private async fetchFromEnabledProviders(
@@ -235,6 +276,314 @@ class Kentridge {
         resizable: true,
       });
     });
+  }
+
+  private getSelectedParentRegularItems(): Zotero.Item[] {
+    const pane = Zotero.getActiveZoteroPane();
+    const selectedItems = pane.getSelectedItems();
+    return selectedItems.filter((item) => {
+      if (!item.isRegularItem?.()) {
+        return false;
+      }
+      if (item.isTopLevelItem?.() === false) {
+        return false;
+      }
+      return !item.parentID;
+    });
+  }
+
+  private showBatchAssignDialog(
+    selectedCount: number,
+  ): Promise<BatchAssignInput | null> {
+    const dialog = new addon.data.ztoolkit.Dialog(1, 1);
+    const itemTypes = Zotero.ItemTypes.getTypes()
+      .filter((itemType: { id: number; name?: string }) =>
+        Number.isInteger(itemType.id),
+      )
+      .sort((a: { id: number }, b: { id: number }) =>
+        Zotero.ItemTypes.getLocalizedString(a.id).localeCompare(
+          Zotero.ItemTypes.getLocalizedString(b.id),
+        ),
+      );
+
+    const itemTypeSelectID = "kentridge-batch-assign-item-type";
+    const proceedingsTitleID = "kentridge-batch-assign-proceedings-title";
+    const conferenceNameID = "kentridge-batch-assign-conference-name";
+    const publisherID = "kentridge-batch-assign-publisher";
+    const dateID = "kentridge-batch-assign-date";
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const finish = (value: BatchAssignInput | null) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        resolve(value);
+      };
+
+      dialog.addCell(0, 0, {
+        tag: "div",
+        namespace: "html",
+        styles: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          width: "100%",
+          minWidth: "760px",
+        },
+        children: [
+          {
+            tag: "p",
+            namespace: "html",
+            styles: { margin: "0", fontWeight: "bold" },
+            properties: {
+              textContent: `Batch assign fields for ${selectedCount} selected parent item(s)`,
+            },
+          },
+          {
+            tag: "p",
+            namespace: "html",
+            styles: { margin: "0", color: "#444" },
+            properties: {
+              textContent:
+                "Only filled values will be written. Empty values keep each item unchanged.",
+            },
+          },
+          {
+            tag: "table",
+            namespace: "html",
+            styles: {
+              width: "100%",
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+            },
+            children: [
+              {
+                tag: "tbody",
+                namespace: "html",
+                children: [
+                  this.buildBatchAssignRow(
+                    "Item Type",
+                    {
+                      tag: "select",
+                      namespace: "html",
+                      attributes: { id: itemTypeSelectID },
+                      styles: { width: "100%", boxSizing: "border-box" },
+                      children: [
+                        {
+                          tag: "option",
+                          namespace: "html",
+                          attributes: { value: "" },
+                          properties: { textContent: "(Keep unchanged)" },
+                        },
+                        ...itemTypes.map((itemType: { id: number }) => ({
+                          tag: "option",
+                          namespace: "html",
+                          attributes: { value: String(itemType.id) },
+                          properties: {
+                            textContent: Zotero.ItemTypes.getLocalizedString(
+                              itemType.id,
+                            ),
+                          },
+                        })),
+                      ],
+                    },
+                  ),
+                  this.buildBatchAssignRow("Proceedings Title", {
+                    tag: "input",
+                    namespace: "html",
+                    attributes: {
+                      id: proceedingsTitleID,
+                      type: "text",
+                      placeholder: "e.g. Proceedings of ...",
+                    },
+                    styles: { width: "100%", boxSizing: "border-box" },
+                  }),
+                  this.buildBatchAssignRow("Conference Name", {
+                    tag: "input",
+                    namespace: "html",
+                    attributes: {
+                      id: conferenceNameID,
+                      type: "text",
+                      placeholder: "e.g. ICML 2026",
+                    },
+                    styles: { width: "100%", boxSizing: "border-box" },
+                  }),
+                  this.buildBatchAssignRow("Publisher", {
+                    tag: "input",
+                    namespace: "html",
+                    attributes: {
+                      id: publisherID,
+                      type: "text",
+                      placeholder: "e.g. ACM",
+                    },
+                    styles: { width: "100%", boxSizing: "border-box" },
+                  }),
+                  this.buildBatchAssignRow("Date", {
+                    tag: "input",
+                    namespace: "html",
+                    attributes: {
+                      id: dateID,
+                      type: "text",
+                      placeholder: "YYYY or YYYY-MM-DD",
+                    },
+                    styles: { width: "100%", boxSizing: "border-box" },
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      dialog.addButton("Cancel", "cancel", {
+        callback: () => finish(null),
+      });
+      dialog.addButton("Apply", "apply", {
+        noClose: true,
+        callback: () => {
+          const win = dialog.window;
+          const doc = win.document;
+
+          const itemTypeValue = (
+            doc.getElementById(itemTypeSelectID) as HTMLSelectElement | null
+          )?.value;
+          const proceedingsTitle = (
+            doc.getElementById(proceedingsTitleID) as HTMLInputElement | null
+          )?.value?.trim();
+          const conferenceName = (
+            doc.getElementById(conferenceNameID) as HTMLInputElement | null
+          )?.value?.trim();
+          const publisher = (
+            doc.getElementById(publisherID) as HTMLInputElement | null
+          )?.value?.trim();
+          const date = (
+            doc.getElementById(dateID) as HTMLInputElement | null
+          )?.value?.trim();
+
+          const input: BatchAssignInput = {};
+          if (itemTypeValue) {
+            const nextItemTypeID = Number.parseInt(itemTypeValue, 10);
+            if (Number.isNaN(nextItemTypeID)) {
+              this.showInfoDialog("Kentridge", "Invalid item type.");
+              return;
+            }
+            input.itemTypeID = nextItemTypeID;
+          }
+          if (proceedingsTitle) {
+            input.proceedingsTitle = proceedingsTitle;
+          }
+          if (conferenceName) {
+            input.conferenceName = conferenceName;
+          }
+          if (publisher) {
+            input.publisher = publisher;
+          }
+          if (date) {
+            input.date = date;
+          }
+
+          if (!this.hasBatchAssignInput(input)) {
+            this.showInfoDialog(
+              "Kentridge",
+              "Please fill at least one field before applying.",
+            );
+            return;
+          }
+
+          finish(input);
+          win.close();
+        },
+      });
+      dialog.setDialogData({
+        beforeUnloadCallback: () => finish(null),
+      });
+
+      dialog.open("Kentridge: Batch Assign", {
+        width: 860,
+        height: 520,
+        fitContent: false,
+        centerscreen: true,
+        resizable: true,
+      });
+    });
+  }
+
+  private buildBatchAssignRow(
+    fieldLabel: string,
+    inputCell: any,
+  ) {
+    return {
+      tag: "tr",
+      namespace: "html",
+      children: [
+        {
+          tag: "td",
+          namespace: "html",
+          styles: {
+            width: "240px",
+            padding: "8px 10px",
+            verticalAlign: "top",
+            borderBottom: "1px solid #e6e6e6",
+            fontWeight: "bold",
+          },
+          properties: { textContent: fieldLabel },
+        },
+        {
+          tag: "td",
+          namespace: "html",
+          styles: {
+            padding: "8px 10px",
+            borderBottom: "1px solid #e6e6e6",
+          },
+          children: [inputCell],
+        },
+      ],
+    };
+  }
+
+  private hasBatchAssignInput(input: BatchAssignInput): boolean {
+    return Boolean(
+      input.itemTypeID ||
+        input.proceedingsTitle ||
+        input.conferenceName ||
+        input.publisher ||
+        input.date,
+    );
+  }
+
+  private async applyBatchAssignToItem(
+    item: Zotero.Item,
+    input: BatchAssignInput,
+  ): Promise<boolean> {
+    const beforeSignature = this.buildItemSignature(item);
+
+    if (
+      typeof input.itemTypeID === "number" &&
+      item.itemTypeID !== input.itemTypeID
+    ) {
+      item.setType(input.itemTypeID);
+    }
+    if (input.proceedingsTitle) {
+      this.setField(item, "proceedingsTitle", input.proceedingsTitle, true);
+    }
+    if (input.conferenceName) {
+      this.setField(item, "conferenceName", input.conferenceName, true);
+    }
+    if (input.publisher) {
+      this.setField(item, "publisher", input.publisher, true);
+    }
+    if (input.date) {
+      this.setField(item, "date", input.date, true);
+    }
+
+    const afterSignature = this.buildItemSignature(item);
+    if (beforeSignature === afterSignature) {
+      return false;
+    }
+    await item.saveTx();
+    return true;
   }
 
   private buildResultCard(

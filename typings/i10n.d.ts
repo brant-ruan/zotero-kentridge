@@ -22,6 +22,8 @@ export type FluentMessageId =
   | 'kentridge-results-header-date'
   | 'kentridge-results-header-title'
   | 'kentridge-results-title'
+  | 'menu-batch-assign-open-label'
+  | 'menu-batch-assign-submenu-label'
   | 'menu-fetch-metadata-label'
   | 'menu-label'
   | 'menuitem-filemenulabel'
