@@ -24,6 +24,7 @@ export type FluentMessageId =
   | 'kentridge-results-title'
   | 'menu-batch-assign-open-label'
   | 'menu-batch-assign-submenu-label'
+  | 'menu-copy-zotero-link-label'
   | 'menu-fetch-metadata-label'
   | 'menu-label'
   | 'menuitem-filemenulabel'

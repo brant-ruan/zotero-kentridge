@@ -1,5 +1,7 @@
 menu-label = 
     .label = Kentridge
+menu-copy-zotero-link-label =
+    .label = Copy Zotero Link
 menu-fetch-metadata-label =
     .label = Fetch Metadata by Title
 menu-batch-assign-submenu-label =

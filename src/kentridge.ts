@@ -143,6 +143,25 @@ class Kentridge {
     );
   }
 
+  public copyZoteroLinkForSelectedItem() {
+    const pane = Zotero.getActiveZoteroPane();
+    const selectedItems = pane.getSelectedItems();
+    const item = selectedItems[0];
+
+    if (!item) {
+      this.showInfoDialog("Kentridge", "Please select one item.");
+      return;
+    }
+
+    const zoteroLink = this.buildZoteroSelectLink(item);
+    if (!zoteroLink) {
+      this.showInfoDialog("Kentridge", "Failed to generate Zotero link.");
+      return;
+    }
+
+    this.copyTextToClipboard(zoteroLink);
+  }
+
   private async fetchFromEnabledProviders(
     title: string,
     enabledProviders: ReturnType<typeof getEnabledProviderConfigs>,
@@ -794,6 +813,32 @@ class Kentridge {
       .replace(/[.。]+$/g, "")
       .replace(/\s+/g, " ")
       .toLowerCase();
+  }
+
+  private buildZoteroSelectLink(item: Zotero.Item): string | null {
+    const key = String(item.key || "").trim();
+    if (!key) {
+      return null;
+    }
+
+    const libraryID = item.libraryID;
+    const library = libraryID ? (Zotero.Libraries.get(libraryID) as any) : null;
+
+    if (library?.libraryType === "group") {
+      const groupID = library.groupID || library.libraryTypeID;
+      if (groupID) {
+        return `zotero://select/groups/${groupID}/items/${key}`;
+      }
+    }
+
+    return `zotero://select/library/items/${key}`;
+  }
+
+  private copyTextToClipboard(text: string) {
+    const clipboard = (Components.classes as any)[
+      "@mozilla.org/widget/clipboardhelper;1"
+    ].getService(Components.interfaces.nsIClipboardHelper);
+    clipboard.copyString(text);
   }
 
   private showInfoDialog(title: string, message: string) {

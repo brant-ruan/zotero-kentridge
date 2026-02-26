@@ -16,6 +16,13 @@ export function registerContextMenu(): void {
       menus: [
         {
           menuType: "menuitem",
+          l10nID: getLocaleID("menu-copy-zotero-link-label"),
+          onCommand: () => {
+            kentridge.copyZoteroLinkForSelectedItem();
+          },
+        },
+        {
+          menuType: "menuitem",
           l10nID: getLocaleID("menu-fetch-metadata-label"),
           onCommand: () => {
             kentridge.fetchMetadataForSelectedItem();
