@@ -1,8 +1,8 @@
 /**
  * Most of this code is from Zotero team's official Make It Red example[1]
- * or the Zotero 7 documentation[2].
+ * or the current Zotero developer documentation[2].
  * [1] https://github.com/zotero/make-it-red
- * [2] https://www.zotero.org/support/dev/zotero_7_for_developers
+ * [2] https://www.zotero.org/support/dev/zotero_8_for_developers
  */
 
 var chromeHandle;

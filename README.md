@@ -1,9 +1,13 @@
 # Zotero Kentridge
 
-[![zotero target version](https://img.shields.io/badge/Zotero-8-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org)
+[![zotero target version](https://img.shields.io/badge/Zotero-8%20%26%209.0-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org)
 [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template)
 
 Kentridge is a Zotero plugin for fetching and applying bibliographic metadata by title.
+
+The current build is intended for Zotero 8 and Zotero 9.0.x.
+
+Release assets include both the installable `.xpi` package and `update.json` manifests used for plugin updates.
 
 ## Why “Kentridge”?
 
@@ -40,14 +44,15 @@ DBLP results are normalized before applying:
 npm install
 ```
 
-2. Copy environment config:
+2. Use Node.js 24 or newer.
+3. Copy environment config:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Set Zotero executable/profile in `.env`.
-4. Start development mode:
+4. Set Zotero executable/profile in `.env`.
+5. Start development mode:
 
 ```bash
 npm start
@@ -56,10 +61,11 @@ npm start
 ## Installation (Release)
 
 1. Open the latest release page: [Releases](https://github.com/brant-ruan/zotero-kentridge/releases)
-2. Download the `.xpi` file (for example: `zotero-kentridge.xpi`).
+2. Download the latest `.xpi` file (for example: `zotero-kentridge.xpi`).
 3. In Zotero, open `Tools -> Plugins`.
 4. Click the gear icon in the plugin manager, then choose `Install Plugin From File...`.
 5. Select the downloaded `.xpi` file and restart Zotero when prompted.
+6. For self-hosted updates, keep the bundled `update.json` or `update-beta.json` release assets available at the configured release URLs.
 
 ## Usage
 
@@ -89,6 +95,10 @@ npm run build
 ```
 
 Build artifacts are generated under `.scaffold/build/`.
+
+## Changelog
+
+- See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 ## Repository
 
